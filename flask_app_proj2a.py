@@ -85,6 +85,9 @@ def get_top_attributes():
     # Standardize numerical data
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(numerical_data)
+
+    # Convert scaled data back to a DataFrame
+    scaled_data = pd.DataFrame(scaled_data, columns=numerical_data.columns)
     _, _, _, pca = compute_pca(scaled_data)
     intrinsic_dimensionality = request.args.get('d', type=int, default=2)
     top_attrs = top_attributes(pca, scaled_data.columns, intrinsic_dimensionality)
