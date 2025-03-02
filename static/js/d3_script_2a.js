@@ -14,17 +14,18 @@ async function loadDashboard() {
     const kmeansData = await kmeansResponse.json();
     drawMSEPlot(kmeansData.mse_scores);
 
-    populatePCSelectors(eigenvalues.length);
-
     loadTopAttributes(2);
 }
+
+let selectedPCs = [];
 
 function drawScreePlot(varianceExplained) {
     const svg = d3.select("#scree-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
     const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
 
-    let selectedIndex = findElbowIndex(varianceExplained);
+    const selectedIndex = findElbowIndex(varianceExplained);
+    selectedPCs = [selectedIndex];
     //Add title
     svg.append("text")
         .attr("class", "title-typography")
@@ -50,17 +51,27 @@ function drawScreePlot(varianceExplained) {
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d + 1));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}%`));
+
     const bars = svg.selectAll("rect").data(varianceExplained).enter().append("rect")
         .attr("x", (d, i) => xScale(i))
         .attr("y", d => yScale(d))
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
-        .attr("fill", (d, i) => i === selectedIndex ? "orange" : "steelblue")
+        .attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue")
         .on("click", function(event, d) {
-            bars.attr("fill", "steelblue"); // Reset all bars
-            d3.select(this).attr("fill", "orange"); // Highlight selected bar
-            selectedIndex = varianceExplained.indexOf(d);
-            loadTopAttributes(selectedIndex + 1);
+            const clickedIndex = varianceExplained.indexOf(d);
+            
+            if (selectedPCs.includes(clickedIndex)) {
+                selectedPCs = selectedPCs.filter(pc => pc !== clickedIndex);
+            } else if (selectedPCs.length < 2) {
+                selectedPCs.push(clickedIndex);
+            } else {
+                selectedPCs.shift();
+                selectedPCs.push(clickedIndex);
+            }
+            
+            bars.attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue");
+            drawBiplot(selectedPCs);
         });
 
 }
@@ -95,25 +106,25 @@ function populatePCSelectors(count) {
     drawBiplot();
 }
 
-async function drawBiplot() {
-    const pc1 = +document.getElementById('pc1').value;
-    const pc2 = +document.getElementById('pc2').value;
+async function drawBiplot(selectedPCs) {
+    if (selectedPCs.length !== 2) return;
     const response = await fetch('/pca');
     const data = await response.json();
     const scores = data.scores;
 
     d3.select("#biplot").html("");
     const svg = d3.select("#biplot").append("svg").attr("width", 500).attr("height", 300);
-    const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[pc1])).range([50, 500]);
-    const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[pc2])).range([250, 50]);
-    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text("Biplot");
+    const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[0]])).range([50, 500]);
+    const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[1]])).range([250, 50]);
+
+    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text(`Biplot (PC${selectedPCs[0] + 1} vs PC${selectedPCs[1] + 1})`);
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
 
     svg.selectAll("circle").data(scores).enter().append("circle")
-        .attr("cx", d => xScale(d[pc1]))
-        .attr("cy", d => yScale(d[pc2]))
+        .attr("cx", d => xScale(d[selectedPCs[0]]))
+        .attr("cy", d => yScale(d[selectedPCs[1]]))
         .attr("r", 5).attr("fill", "steelblue");
 }
 
