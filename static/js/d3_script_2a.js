@@ -5,7 +5,10 @@ async function loadDashboard() {
     const pcaData = await pcaResponse.json();
 
     const eigenvalues = pcaData.eigenvalues;
-    drawScreePlot(eigenvalues);
+    const totalVariance = d3.sum(eigenvalues);
+    const varianceExplained = eigenvalues.map(d => (d / totalVariance) * 100);
+
+    drawScreePlot(varianceExplained);
 
     const kmeansResponse = await fetch('/kmeans');
     const kmeansData = await kmeansResponse.json();
@@ -16,10 +19,10 @@ async function loadDashboard() {
     loadTopAttributes(2);
 }
 
-function drawScreePlot(eigenvalues) {
+function drawScreePlot(varianceExplained) {
     const svg = d3.select("#scree-plot").append("svg").attr("width", 500).attr("height", 300);
-    const xScale = d3.scaleBand().domain(d3.range(eigenvalues.length)).range([50, 500]).padding(0.1);
-    const yScale = d3.scaleLinear().domain([0, d3.max(eigenvalues)]).range([250, 50]);
+    const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
+    const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
     //Add title
     svg.append("text")
         .attr("class", "title-typography")
@@ -30,7 +33,7 @@ function drawScreePlot(eigenvalues) {
 
     //Add Y-axis label
     svg.append("text")
-        .attr("x", -150).attr("y", 25)
+        .attr("x", -150).attr("y", 10)
         .attr("class", "title-typography")
         .attr("text-anchor", "middle")
         .attr("transform", "rotate(-90)")
@@ -44,13 +47,13 @@ function drawScreePlot(eigenvalues) {
         .text("Principal Components");
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d + 1));
-    svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
-    svg.selectAll("rect").data(eigenvalues).enter().append("rect")
+    svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}%`));
+    svg.selectAll("rect").data(varianceExplained).enter().append("rect")
         .attr("x", (d, i) => xScale(i))
         .attr("y", d => yScale(d))
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
-        .attr("fill", (d, i) => i === findElbowIndex(eigenvalues) ? "orange" : "steelblue");
+        .attr("fill", (d, i) => i === findElbowIndex(varianceExplained) ? "orange" : "steelblue");
 
 }
 
