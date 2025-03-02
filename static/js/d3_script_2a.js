@@ -23,6 +23,8 @@ function drawScreePlot(varianceExplained) {
     const svg = d3.select("#scree-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
     const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
+
+    let selectedIndex = findElbowIndex(varianceExplained);
     //Add title
     svg.append("text")
         .attr("class", "title-typography")
@@ -48,12 +50,18 @@ function drawScreePlot(varianceExplained) {
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d + 1));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}%`));
-    svg.selectAll("rect").data(varianceExplained).enter().append("rect")
+    const bars = svg.selectAll("rect").data(varianceExplained).enter().append("rect")
         .attr("x", (d, i) => xScale(i))
         .attr("y", d => yScale(d))
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
-        .attr("fill", (d, i) => i === findElbowIndex(varianceExplained) ? "orange" : "steelblue");
+        .attr("fill", (d, i) => i === selectedIndex ? "orange" : "steelblue")
+        .on("click", function(event, d) {
+            bars.attr("fill", "steelblue"); // Reset all bars
+            d3.select(this).attr("fill", "orange"); // Highlight selected bar
+            selectedIndex = varianceExplained.indexOf(d);
+            loadTopAttributes(selectedIndex + 1);
+        });
 
 }
 
