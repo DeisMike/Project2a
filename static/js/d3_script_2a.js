@@ -151,7 +151,7 @@ function findElbowIndex(values) {
         const slope = Math.abs(values[i - 1] - values[i]) + Math.abs(values[i] - values[i + 1]);
         if (slope > maxSlope) {
             maxSlope = slope;
-            elbowIndex = i;
+            elbowIndex = i + 1;
         }
     }
     return elbowIndex;
