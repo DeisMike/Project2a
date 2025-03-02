@@ -3,7 +3,7 @@
 async function loadDashboard() {
     const pcaResponse = await fetch('/pca');
     const pcaData = await pcaResponse.json();
-    
+
     const eigenvalues = pcaData.eigenvalues;
     drawScreePlot(eigenvalues);
 
@@ -22,7 +22,14 @@ function drawScreePlot(eigenvalues) {
     const yScale = d3.scaleLinear().domain([0, d3.max(eigenvalues)]).range([250, 50]);
     svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text("Scree Plot");
 
-    svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d+1));
+    //Add Y-axis label
+    svg.append("text")
+        .attr("x", -150).attr("y", 25)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text("Variance Explained");
+
+    svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d + 1));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
     svg.selectAll("rect").data(eigenvalues).enter().append("rect")
         .attr("x", (d, i) => xScale(i))
@@ -53,8 +60,8 @@ function populatePCSelectors(count) {
     const pc1 = document.getElementById('pc1');
     const pc2 = document.getElementById('pc2');
     for (let i = 0; i < count; i++) {
-        pc1.innerHTML += `<option value="${i}">PC${i+1}</option>`;
-        pc2.innerHTML += `<option value="${i}">PC${i+1}</option>`;
+        pc1.innerHTML += `<option value="${i}">PC${i + 1}</option>`;
+        pc2.innerHTML += `<option value="${i}">PC${i + 1}</option>`;
     }
     pc1.value = 0;
     pc2.value = 1;

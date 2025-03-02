@@ -15,3 +15,8 @@ h1 {
 select {
     margin-right: 10px;
 }
+
+.axis-title {
+    font-size: 14px;
+    font-weight: bold;
+}
