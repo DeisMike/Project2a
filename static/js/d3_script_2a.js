@@ -20,14 +20,28 @@ function drawScreePlot(eigenvalues) {
     const svg = d3.select("#scree-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(eigenvalues.length)).range([50, 500]).padding(0.1);
     const yScale = d3.scaleLinear().domain([0, d3.max(eigenvalues)]).range([250, 50]);
-    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text("Scree Plot");
+    //Add title
+    svg.append("text")
+        .attr("class", "title-typography")
+        .attr("x", 250)
+        .attr("y", 20)
+        .attr("text-anchor", "middle")
+        .text("Scree Plot");
 
     //Add Y-axis label
     svg.append("text")
         .attr("x", -150).attr("y", 25)
+        .attr("class", "title-typography")
         .attr("text-anchor", "middle")
         .attr("transform", "rotate(-90)")
         .text("Variance Explained");
+
+    //Add X-axis label
+    svg.append("text")
+        .attr("x", 260).attr("y", 285)
+        .attr("class", "title-typography")
+        .attr("text-anchor", "middle")
+        .text("Principal Components");
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale).tickFormat(d => d + 1));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
