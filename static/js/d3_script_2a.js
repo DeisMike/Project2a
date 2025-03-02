@@ -8,6 +8,7 @@ async function loadDashboard() {
     const totalVariance = d3.sum(eigenvalues);
     const varianceExplained = eigenvalues.map(d => (d / totalVariance) * 100);
 
+    setupLayout();
     drawScreePlot(varianceExplained);
 
     const kmeansResponse = await fetch('/kmeans');
@@ -17,10 +18,17 @@ async function loadDashboard() {
     loadTopAttributes(2);
 }
 
+function setupLayout() {
+    const container = d3.select("body").append("div").attr("id", "visualization-container").style("display", "flex");
+
+    container.append("div").attr("id", "scree-container").style("flex", "1");
+    container.append("div").attr("id", "biplot-container").style("flex", "1");
+}
+
 let selectedPCs = [];
 
 function drawScreePlot(varianceExplained) {
-    const svg = d3.select("#scree-plot").append("svg").attr("width", 500).attr("height", 300);
+    const svg = d3.select("#scree-container").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
     const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
 
@@ -112,8 +120,8 @@ async function drawBiplot(selectedPCs) {
     const data = await response.json();
     const scores = data.scores;
 
-    d3.select("#biplot").html("");
-    const svg = d3.select("#biplot").append("svg").attr("width", 500).attr("height", 300);
+    d3.select("#biplot-container").html("");
+    const svg = d3.select("#biplot-container").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[0]])).range([50, 500]);
     const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[1]])).range([250, 50]);
 
