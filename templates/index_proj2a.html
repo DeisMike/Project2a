@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_proj2a.css') }}">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="{{ url_for('static', filename='js/d3_script_2a.js') }}"></script>
+</head>
+<body>
+    <h1>PCA & K-means Dashboard</h1>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <button type="submit">Upload Dataset</button>
+    </form>
+
+    <div id="scree-plot"></div>
+    <div id="mse-plot"></div>
+    <div>
+        <label>Choose PCA Components:</label>
+        <select id="pc1"></select>
+        <select id="pc2"></select>
+    </div>
+    <div id="biplot"></div>
+    <div id="scatterplot-matrix"></div>
+    <div id="top-attributes"></div>
+
+    <script>
+        window.onload = () => loadDashboard();
+    </script>
+</body>
+</html>
+
+    

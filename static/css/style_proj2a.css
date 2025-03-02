@@ -1,0 +1,17 @@
+/* static/css/style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+#scree-plot, #mse-plot, #biplot, #scatterplot-matrix {
+    margin: 20px 0;
+}
+
+select {
+    margin-right: 10px;
+}
