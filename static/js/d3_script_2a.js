@@ -96,7 +96,7 @@ function drawMSEPlot(mseScores) {
         .attr("class", "title-typography")
         .attr("text-anchor", "middle")
         .attr("transform", "rotate(-90)")
-        .text("Mean Square Error Score");
+        .text("Mean Squared Error Score");
 
     //Add X-axis label
     svg.append("text")
@@ -115,19 +115,6 @@ function drawMSEPlot(mseScores) {
         .attr("fill", (d, i) => i === findElbowIndex(mseScores) ? "orange" : "steelblue");
 }
 
-function populatePCSelectors(count) {
-    const pc1 = document.getElementById('pc1');
-    const pc2 = document.getElementById('pc2');
-    for (let i = 0; i < count; i++) {
-        pc1.innerHTML += `<option value="${i}">PC${i + 1}</option>`;
-        pc2.innerHTML += `<option value="${i}">PC${i + 1}</option>`;
-    }
-    pc1.value = 0;
-    pc2.value = 1;
-    pc1.onchange = drawBiplot;
-    pc2.onchange = drawBiplot;
-    drawBiplot();
-}
 
 async function drawBiplot(selectedPCs) {
     if (selectedPCs.length !== 2) return;
