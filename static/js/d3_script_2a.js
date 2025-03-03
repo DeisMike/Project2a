@@ -88,7 +88,22 @@ function drawMSEPlot(mseScores) {
     const svg = d3.select("#mse-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(1, mseScores.length + 1)).range([50, 500]).padding(0.1);
     const yScale = d3.scaleLinear().domain([0, d3.max(mseScores)]).range([250, 50]);
-    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text("K-Means MSE Plot");
+    svg.append("text").attr("x", 250).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text("K-Means MSE Plot");
+
+    //Add Y-axis label
+    svg.append("text")
+        .attr("x", -150).attr("y", 10)
+        .attr("class", "title-typography")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text("Mean Square Error Score");
+
+    //Add X-axis label
+    svg.append("text")
+        .attr("x", 260).attr("y", 285)
+        .attr("class", "title-typography")
+        .attr("text-anchor", "middle")
+        .text("k");
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
@@ -125,7 +140,22 @@ async function drawBiplot(selectedPCs) {
     const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[0]])).range([50, 500]);
     const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[1]])).range([250, 50]);
 
-    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text(`Biplot (PC${selectedPCs[0] + 1} vs PC${selectedPCs[1] + 1})`);
+    svg.append("text").attr("x", 250).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text(`Biplot (PC${selectedPCs[0] + 1} vs PC${selectedPCs[1] + 1})`);
+
+    //Add Y-axis label
+    svg.append("text")
+        .attr("x", -150).attr("y", 10)
+        .attr("class", "title-typography")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text(`PC${selectedPCs[1] + 1}`);
+
+    //Add X-axis label
+    svg.append("text")
+        .attr("x", 260).attr("y", 285)
+        .attr("class", "title-typography")
+        .attr("text-anchor", "middle")
+        .text(`PC${selectedPCs[0] + 1}`);
 
     svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
