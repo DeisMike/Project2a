@@ -37,11 +37,14 @@ def pca():
     # Standardize numerical data
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(numerical_data)
+    # Convert scaled data back to a DataFrame
+    scaled_data = pd.DataFrame(scaled_data, columns=numerical_data.columns)
     eigenvalues, eigenvectors, scores, pca = compute_pca(scaled_data)
     return jsonify({
         'eigenvalues': eigenvalues,
         'eigenvectors': eigenvectors,
-        'scores': scores
+        'scores': scores,
+        'column_names': list(scaled_data.columns)
     })
 
 def compute_kmeans(data):
@@ -90,8 +93,15 @@ def get_top_attributes():
     scaled_data = pd.DataFrame(scaled_data, columns=numerical_data.columns)
     _, _, _, pca = compute_pca(scaled_data)
     intrinsic_dimensionality = request.args.get('d', type=int, default=2)
-    top_attrs = top_attributes(pca, scaled_data.columns, intrinsic_dimensionality)
-    return jsonify({'top_attributes': top_attrs})
+
+    # Compute top attributes based on PCA loadings
+    top_attr_indices = np.argsort(np.sum(np.square(pca.components_[:intrinsic_dimensionality]), axis=0))[-4:][::-1]
+    top_attr_scores = np.sum(np.square(pca.components_[:intrinsic_dimensionality]), axis=0)[top_attr_indices]
+
+    # Convert indices to actual column names
+    top_attr_names = [numerical_data.columns[i] for i in top_attr_indices]
+
+    return jsonify({'top_attributes': list(zip(top_attr_names, top_attr_scores))})
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -11,6 +11,9 @@ async function loadDashboard() {
     setupLayout();
     drawScreePlot(varianceExplained);
 
+    selectedPCs = [0, 1];
+    drawBiplot(selectedPCs);
+
     const kmeansResponse = await fetch('/kmeans');
     const kmeansData = await kmeansResponse.json();
     drawMSEPlot(kmeansData.mse_scores);
@@ -23,17 +26,19 @@ function setupLayout() {
 
     container.append("div").attr("id", "scree-container").style("flex", "1");
     container.append("div").attr("id", "biplot-container").style("flex", "1");
+
+    d3.select("body").append("div").attr("id", "top-attributes-table");
+
 }
 
-let selectedPCs = [];
+let selectedPCs = [0, 1];
+let intrinsicDimensionality = findElbowIndex([]);
 
 function drawScreePlot(varianceExplained) {
     const svg = d3.select("#scree-container").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
     const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
 
-    const selectedIndex = findElbowIndex(varianceExplained);
-    selectedPCs = [selectedIndex];
     //Add title
     svg.append("text")
         .attr("class", "title-typography")
@@ -66,6 +71,8 @@ function drawScreePlot(varianceExplained) {
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
         .attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue")
+        .attr("stroke", (d, i) => i === intrinsicDimensionality ? "black" : "none")
+        .attr("stroke-width", 3)
         .on("click", function(event, d) {
             const clickedIndex = varianceExplained.indexOf(d);
             
@@ -80,6 +87,11 @@ function drawScreePlot(varianceExplained) {
             
             bars.attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue");
             drawBiplot(selectedPCs);
+        })
+        .on("mousedown", function(event, d) {
+            intrinsicDimensionality = varianceExplained.indexOf(d);
+            bars.attr("stroke", (d, i) => i === intrinsicDimensionality ? "black" : "none");
+            loadTopAttributes(intrinsicDimensionality + 1);
         });
 
 }
@@ -156,7 +168,62 @@ async function drawBiplot(selectedPCs) {
 async function loadTopAttributes(d_i) {
     const response = await fetch(`/top-attributes?d=${d_i}`);
     const data = await response.json();
-    document.getElementById('top-attributes').innerText = 'Top Attributes: ' + data.top_attributes.join(', ');
+
+    // Fetch column names from PCA API
+    const pcaResponse = await fetch('/pca');
+    const pcaData = await pcaResponse.json();
+
+    // Ensure columnNames is defined
+    if (!pcaData.column_names || pcaData.column_names.length === 0) {
+        console.error("Error: columnNames is undefined or empty", pcaData);
+        return;
+    }
+
+    const columnNames = pcaData.column_names;
+
+    // Ensure top_attributes exists and is valid
+    if (!data.top_attributes || data.top_attributes.length === 0) {
+        console.error("Error: top_attributes is undefined or empty", data);
+        return;
+    }
+
+    console.log("Raw top_attributes data:", data.top_attributes);
+
+    // Convert indices to actual attribute names with corresponding squared sum of PCA loadings
+    const attributesWithScores = data.top_attributes.map((attr, i) => {
+        const attributeName = columnNames[i]; // Ensure index is valid
+        const score = parseFloat(attr); // Convert to number
+
+        if (isNaN(score)) {
+            console.error(`Invalid PCA loading score for ${attributeName}:`, attr);
+            return { name: attributeName, score: "N/A" }; // Handle invalid numbers
+        }
+
+        return { name: attributeName, score: score.toFixed(4) };
+    });
+    
+    const table = d3.select("#top-attributes-table").html("").append("table").style("border", "1px solid black");
+    // Table header
+    table.append("tr").selectAll("th")
+        .data(["Attribute Name", "Squared Sum of PCA Loadings"])
+        .enter().append("th")
+        .text(d => d)
+        .style("border", "1px solid black");
+    
+    // Table rows
+    // Table rows (Fix extracting values properly)
+    data.top_attributes.forEach(attr => {
+        if (!Array.isArray(attr) || attr.length !== 2) {
+            console.error("Invalid attribute format:", attr);
+            return;
+        }
+
+        const [name, score] = attr; // Correctly extract name and score
+
+        const row = table.append("tr");
+        row.append("td").text(name).style("border", "1px solid black").style("padding", "5px");
+        row.append("td").text(parseFloat(score).toFixed(4)).style("border", "1px solid black").style("padding", "5px");
+    });
 
     drawScatterplotMatrix(data.top_attributes);
 }
