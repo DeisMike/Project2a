@@ -188,19 +188,6 @@ async function loadTopAttributes(d_i) {
     }
 
     console.log("Raw top_attributes data:", data.top_attributes);
-
-    // Convert indices to actual attribute names with corresponding squared sum of PCA loadings
-    const attributesWithScores = data.top_attributes.map((attr, i) => {
-        const attributeName = columnNames[i]; // Ensure index is valid
-        const score = parseFloat(attr); // Convert to number
-
-        if (isNaN(score)) {
-            console.error(`Invalid PCA loading score for ${attributeName}:`, attr);
-            return { name: attributeName, score: "N/A" }; // Handle invalid numbers
-        }
-
-        return { name: attributeName, score: score.toFixed(4) };
-    });
     
     const table = d3.select("#top-attributes-table").html("").append("table").style("border", "1px solid black");
     // Table header
