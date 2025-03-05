@@ -19,6 +19,7 @@ async function loadDashboard() {
     drawMSEPlot(kmeansData.mse_scores);
 
     loadTopAttributes(2);
+    updateScatterplotMatrix(2);
 }
 
 function setupLayout() {
@@ -92,6 +93,7 @@ function drawScreePlot(varianceExplained) {
             intrinsicDimensionality = varianceExplained.indexOf(d);
             bars.attr("stroke", (d, i) => i === intrinsicDimensionality ? "black" : "none");
             loadTopAttributes(intrinsicDimensionality + 1);
+            updateScatterplotMatrix(intrinsicDimensionality + 1);
         });
 
 }
@@ -215,32 +217,83 @@ async function loadTopAttributes(d_i) {
     drawScatterplotMatrix(data.top_attributes);
 }
 
-async function drawScatterplotMatrix(attributes) {
-    const response = await fetch('/dataset');
-    const dataset = await response.json();
+async function drawScatterplotMatrix(attributes, dataset) {
+    if (!dataset || dataset.length === 0) {
+        console.warn("Warning: dataset is undefined or empty in drawScatterplotMatrix.");
+        return;
+    }
 
     d3.select("#scatterplot-matrix").html("");
-    const svg = d3.select("#scatterplot-matrix").append("svg").attr("width", 500).attr("height", 500);
-
+    const svgSize = 500;
     const padding = 50;
-    const size = (500 - padding) / attributes.length;
+    const cellSize = (svgSize - padding) / attributes.length;
+    const svg = d3.select("#scatterplot-matrix").append("svg").attr("width", svgSize).attr("height", svgSize);
 
-    svg.append("text").attr("x", 250).attr("y", 20).attr("text-anchor", "middle").text("Scatterplot Matrix");
+    svg.append("text").attr("x", 95).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text("Scatterplot Matrix");
 
     attributes.forEach((attrX, col) => {
         attributes.forEach((attrY, row) => {
-            const xScale = d3.scaleLinear().domain(d3.extent(dataset, d => d[attrX])).range([col * size + padding, (col + 1) * size + padding]);
-            const yScale = d3.scaleLinear().domain(d3.extent(dataset, d => d[attrY])).range([(row + 1) * size, row * size]);
+            if (!dataset.every(d => d[attrX] !== undefined && d[attrY] !== undefined)) {
+                console.error(`Missing values for ${attrX} or ${attrY}`);
+                return;
+            }
 
-            svg.selectAll(`circle-${col}-${row}`).data(dataset).enter().append("circle")
-                .attr("cx", d => xScale(d[attrX]))
-                .attr("cy", d => yScale(d[attrY]))
-                .attr("r", 2).attr("fill", "steelblue");
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(dataset, d => parseFloat(d[attrX])))
+                .range([col * cellSize + padding, (col + 1) * cellSize + padding]);
 
-            if (row === attributes.length - 1) svg.append("text").attr("x", col * size + padding + size / 2).attr("y", 500).attr("text-anchor", "middle").text(attrX);
-            if (col === 0) svg.append("text").attr("x", 10).attr("y", row * size + size / 2).attr("text-anchor", "end").text(attrY);
+            const yScale = d3.scaleLinear()
+                .domain(d3.extent(dataset, d => parseFloat(d[attrY])))
+                .range([(row + 1) * cellSize, row * cellSize]);
+
+            if (row === col) {
+                // Diagonal: Display attribute name only
+                svg.append("text")
+                    .attr("x", col * cellSize + padding + cellSize / 2)
+                    .attr("y", row * cellSize + cellSize / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("alignment-baseline", "middle")
+                    .text(attrX);
+            } else {
+                // Scatterplot for non-diagonal cells
+                svg.selectAll(`circle-${col}-${row}`)
+                    .data(dataset)
+                    .enter().append("circle")
+                    .attr("cx", d => xScale(parseFloat(d[attrX])))
+                    .attr("cy", d => yScale(parseFloat(d[attrY])))
+                    .attr("r", 2)
+                    .attr("fill", "steelblue");
+            }
         });
     });
+}
+
+// Update scatterplot matrix when new intrinsic dimensionality is selected
+async function updateScatterplotMatrix(d_i) {
+    const response = await fetch(`/top-attributes?d=${d_i}`);
+    const data = await response.json();
+
+    if (!data.top_attributes || data.top_attributes.length === 0) {
+        console.error("Error: top_attributes is undefined or empty", data);
+        return;
+    }
+
+    // Extract only attribute names (ignore PCA scores)
+    const attributes = data.top_attributes.map(attr => attr[0]);
+
+    const datasetResponse = await fetch('/dataset');
+    const datasetData = await datasetResponse.json();
+
+    if (!datasetData.dataset || datasetData.dataset.length === 0) {
+        console.error("Error: Dataset is missing or empty", datasetData);
+        return;
+    }
+
+    console.log("Using attributes:", attributes);
+    console.log("Received dataset:", datasetData.dataset);
+
+    drawScatterplotMatrix(attributes, datasetData.dataset);
+        
 }
 
 function findElbowIndex(values) {

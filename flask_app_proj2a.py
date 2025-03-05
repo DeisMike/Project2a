@@ -103,6 +103,22 @@ def get_top_attributes():
 
     return jsonify({'top_attributes': list(zip(top_attr_names, top_attr_scores))})
 
+@app.route('/dataset', methods=['GET'])
+def get_dataset():
+    # Select numerical columns only
+    numerical_data = df.select_dtypes(include=['float64', 'int64'])
+    
+    # Standardize numerical data
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(numerical_data)
+    
+    # Convert back to DataFrame with correct column names
+    scaled_data = pd.DataFrame(scaled_data, columns=numerical_data.columns)
+
+    print("Dataset being sent: ", scaled_data.head().to_json()) # Debug log
+    
+    return jsonify({'dataset': scaled_data.to_dict(orient="records")})
+
 if __name__ == '__main__':
     app.run(debug=True)
 
