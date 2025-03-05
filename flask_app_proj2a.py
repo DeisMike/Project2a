@@ -14,13 +14,6 @@ df = pd.read_csv('data/wdbc.csv')
 def home():
     return render_template('index_proj2a.html')
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    global df
-    file = request.files['file']
-    df = pd.read_csv(file)
-    return redirect('/')
-
 def compute_pca(data):
     pca = PCA()
     pca.fit(data)
