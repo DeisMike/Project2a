@@ -132,20 +132,28 @@ function drawMSEPlot(mseScores) {
 
 async function drawBiplot(selectedPCs) {
     if (selectedPCs.length !== 2) return;
-    const response = await fetch('/pca');
-    const data = await response.json();
-    const scores = data.scores;
+    const pcaResponse = await fetch('/pca');
+    const pcaData = await pcaResponse.json();
+    const scores = pcaData.scores;
+    const eigenvectors = pcaData.eigenvectors;
+    const columnNames = pcaData.column_names;
+
+    const kmeansResponse = await fetch('/kmeans');
+    const kmeansData = await kmeansResponse.json();
+    const clusters = kmeansData.clusters;
+    const initialK = findElbowIndex(kmeansData.mse_scores);
+    const clusterLabels = clusters[initialK];
 
     d3.select("#biplot-container").html("");
-    const svg = d3.select("#biplot-container").append("svg").attr("width", 500).attr("height", 300);
-    const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[0]])).range([50, 500]);
-    const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[1]])).range([250, 50]);
+    const svg = d3.select("#biplot-container").append("svg").attr("width", 500).attr("height", 400);
+    const xScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[0]])).range([50, 450]);
+    const yScale = d3.scaleLinear().domain(d3.extent(scores, d => d[selectedPCs[1]])).range([350, 50]);
 
     svg.append("text").attr("x", 250).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text(`Biplot (PC${selectedPCs[0] + 1} vs PC${selectedPCs[1] + 1})`);
 
     //Add Y-axis label
     svg.append("text")
-        .attr("x", -150).attr("y", 10)
+        .attr("x", -200).attr("y", 10)
         .attr("class", "title-typography")
         .attr("text-anchor", "middle")
         .attr("transform", "rotate(-90)")
@@ -153,18 +161,77 @@ async function drawBiplot(selectedPCs) {
 
     //Add X-axis label
     svg.append("text")
-        .attr("x", 260).attr("y", 285)
+        .attr("x", 250).attr("y", 395)
         .attr("class", "title-typography")
         .attr("text-anchor", "middle")
         .text(`PC${selectedPCs[0] + 1}`);
 
-    svg.append("g").attr("transform", "translate(0,250)").call(d3.axisBottom(xScale));
+    svg.append("g").attr("transform", "translate(0,350)").call(d3.axisBottom(xScale));
     svg.append("g").attr("transform", "translate(50,0)").call(d3.axisLeft(yScale));
 
+    // Color scale for clusters
+    const uniqueClusters = [...new Set(clusterLabels)];
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(uniqueClusters);
+
+    // Projected data points
     svg.selectAll("circle").data(scores).enter().append("circle")
         .attr("cx", d => xScale(d[selectedPCs[0]]))
         .attr("cy", d => yScale(d[selectedPCs[1]]))
-        .attr("r", 5).attr("fill", "steelblue");
+        .attr("r", 4).attr("fill", (d, i) => colorScale(clusterLabels[i]));
+
+    // Scale for arrows
+    const arrowScale = 15;
+
+    // Arrows: Dimension axes
+    eigenvectors[selectedPCs[0]].forEach((value, i) => {
+        const xEnd = xScale(value * arrowScale);
+        const yEnd = yScale(eigenvectors[selectedPCs[1]][i] * arrowScale);
+
+        svg.append("line")
+            .attr("x1", xScale(0))
+            .attr("y1", yScale(0))
+            .attr("x2", xEnd)
+            .attr("y2", yEnd)
+            .attr("stroke", "black")
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#arrow)");
+
+        svg.append("text")
+            .attr("x", xEnd + 5)
+            .attr("y", yEnd - 5)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "10px")
+            .text(columnNames[i]);
+    });
+
+    // Define arrow markers
+    svg.append("defs").append("marker")
+        .attr("id", "arrow")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 10)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+    .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "black");
+    
+    // Add Legend
+    const legend = svg.append("g").attr("transform", "translate(380, 20)");
+    uniqueClusters.forEach((cluster, i) => {
+        legend.append("rect")
+            .attr("x", 0)
+            .attr("y", i * 20)
+            .attr("width", 12)
+            .attr("height", 12)
+            .attr("fill", colorScale(cluster));
+
+        legend.append("text")
+            .attr("x", 20)
+            .attr("y", i * 20 + 10)
+            .text(`Cluster ${cluster}`);
+    });
 }
 
 async function loadTopAttributes(d_i) {
