@@ -223,13 +223,13 @@ async function drawScatterplotMatrix(attributes, dataset) {
         return;
     }
 
-    d3.select("#scatterplot-matrix").html("");
+    d3.select("#scatterplot-matrix").html(""); // Clear previous plots
     const svgSize = 500;
     const padding = 50;
     const cellSize = (svgSize - padding) / attributes.length;
-    const svg = d3.select("#scatterplot-matrix").append("svg").attr("width", svgSize).attr("height", svgSize);
+    const svg = d3.select("#scatterplot-matrix").append("svg").attr("width", svgSize + 50).attr("height", svgSize);
 
-    svg.append("text").attr("x", 95).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text("Scatterplot Matrix");
+    svg.append("text").attr("x", 97).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text("Scatterplot Matrix");
 
     attributes.forEach((attrX, col) => {
         attributes.forEach((attrY, row) => {
@@ -238,13 +238,27 @@ async function drawScatterplotMatrix(attributes, dataset) {
                 return;
             }
 
+            const xOffset = col * cellSize + padding;
+            const yOffset = row * cellSize;
+
+            // Draw a border around each plot
+            svg.append("rect")
+                .attr("x", xOffset)
+                .attr("y", yOffset)
+                .attr("width", cellSize)
+                .attr("height", cellSize)
+                .attr("stroke", "black")
+                .attr("fill", "none")
+                .attr("stroke-width", 1);
+
+
             const xScale = d3.scaleLinear()
                 .domain(d3.extent(dataset, d => parseFloat(d[attrX])))
-                .range([col * cellSize + padding, (col + 1) * cellSize + padding]);
+                .range([xOffset, xOffset + cellSize]);
 
             const yScale = d3.scaleLinear()
                 .domain(d3.extent(dataset, d => parseFloat(d[attrY])))
-                .range([(row + 1) * cellSize, row * cellSize]);
+                .range([yOffset + cellSize, yOffset]);
 
             if (row === col) {
                 // Diagonal: Display attribute name only
@@ -263,6 +277,26 @@ async function drawScatterplotMatrix(attributes, dataset) {
                     .attr("cy", d => yScale(parseFloat(d[attrY])))
                     .attr("r", 2)
                     .attr("fill", "steelblue");
+
+                // Add axes to left-most and bottom-most plots
+                if (col === 0) {
+                    svg.append("g")
+                        .attr("transform", `translate(${xOffset},0)`)
+                        .call(d3.axisLeft(yScale).ticks(4));
+                }
+                if (row === attributes.length - 1) {
+                    svg.append("g")
+                        .attr("transform", `translate(0,${yOffset + cellSize})`)
+                        .call(d3.axisBottom(xScale).ticks(4));
+                }
+                if (row === 0 && col === attributes.length - 1) { // Add axes to top row, right-most plot
+                    svg.append("g")
+                        .attr("transform", `translate(0,${yOffset})`)
+                        .call(d3.axisTop(xScale).ticks(4));
+                    svg.append("g")
+                        .attr("transform", `translate(${xOffset + cellSize},0)`)
+                        .call(d3.axisRight(yScale).ticks(4));
+                }
             }
         });
     });
