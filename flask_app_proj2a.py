@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from kneed import KneeLocator
 import numpy as np
 
 app = Flask(__name__)
@@ -109,6 +110,34 @@ def get_dataset():
     scaled_data = pd.DataFrame(scaled_data, columns=numerical_data.columns)
     
     return jsonify({'dataset': scaled_data.to_dict(orient="records")})
+
+@app.route('/find-elbow', methods=['GET'])
+def find_elbow_index():
+    scree = request.args.get('scree', default=0, type=int)
+    kmeans = request.args.get('kmeans', default=0, type=int)
+
+    # Ensure values correctly passed from frontend
+    values = request.args.getlist('values', type=float)
+    
+    if not values or len(values) < 3:
+        print("Not enough data points to compute elbow")
+        return jsonify(0) # Default to the first index if not enough points
+    
+    print(f" Received values for elbow detection: {values}")
+
+    try:
+        kneedle = KneeLocator(range(1, len(values) + 1), values, curve="convex", direction="decreasing", online=True)
+        if kneedle.knee is None:
+            print(" No elbow detected, returning heuristic choice")
+            return jsonify(int(np.argmax(np.diff(values)) + 1)) # Heuristic: Use highest drop-off
+        
+        print(f" Detected elbow index: {kneedle.knee}")
+        return jsonify(int(kneedle.knee))
+    except Exception as e:
+        print(f" Error computing elbow: {e}")
+        return jsonify(0)
+
+    
 
 if __name__ == '__main__':
     app.run(debug=True)

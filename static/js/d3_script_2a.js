@@ -18,8 +18,8 @@ async function loadDashboard() {
     const kmeansData = await kmeansResponse.json();
     drawMSEPlot(kmeansData.mse_scores);
 
-    loadTopAttributes(2);
-    updateScatterplotMatrix(2);
+    loadTopAttributes(3);
+    updateScatterplotMatrix(3);
 }
 
 function setupLayout() {
@@ -33,9 +33,15 @@ function setupLayout() {
 }
 
 let selectedPCs = [0, 1];
-let intrinsicDimensionality = findElbowIndex([]);
+//let intrinsicDimensionality = findElbowIndex([]);
 
-function drawScreePlot(varianceExplained) {
+async function drawScreePlot(varianceExplained) {
+    console.log(" Sending varianceExplained to Flask:", varianceExplained);
+    // Convert to query string format
+    const valuesQuery = varianceExplained.map(v => `values=${v}`).join("&");
+    const elbowResponse = await fetch(`/find-elbow?scree=1&${valuesQuery}`); // Flask API to get elbow
+    let elbowIndex = await elbowResponse.json();
+    console.log("Elbow index, scree:", elbowIndex);
     const svg = d3.select("#scree-container").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
     const yScale = d3.scaleLinear().domain([0, d3.max(varianceExplained)]).range([250, 50]);
@@ -72,7 +78,7 @@ function drawScreePlot(varianceExplained) {
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
         .attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue")
-        .attr("stroke", (d, i) => i === intrinsicDimensionality ? "black" : "none")
+        .attr("stroke", (d, i) => i === elbowIndex ? "black" : "none")
         .attr("stroke-width", 3)
         .on("click", function(event, d) {
             const clickedIndex = varianceExplained.indexOf(d);
@@ -90,15 +96,23 @@ function drawScreePlot(varianceExplained) {
             drawBiplot(selectedPCs);
         })
         .on("mousedown", function(event, d) {
-            intrinsicDimensionality = varianceExplained.indexOf(d);
-            bars.attr("stroke", (d, i) => i === intrinsicDimensionality ? "black" : "none");
-            loadTopAttributes(intrinsicDimensionality + 1);
-            updateScatterplotMatrix(intrinsicDimensionality + 1);
+            elbowIndex = varianceExplained.indexOf(d);
+            console.log(`Intrinsic Dimensionality Updated: ${elbowIndex}`);
+            // Update visuals
+            bars.attr("stroke", (d, i) => i === elbowIndex ? "black" : "none");
+            loadTopAttributes(elbowIndex + 1);
+            updateScatterplotMatrix(elbowIndex + 1);
         });
 
 }
 
-function drawMSEPlot(mseScores) {
+async function drawMSEPlot(mseScores) {
+    console.log("Sending mseScores to Flask:", mseScores);
+    // Convert to query string format
+    const valuesQuery = mseScores.map(v => `values=${v}`).join("&");
+    const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`); // Flask API to get elbow
+    const elbowIndex = await elbowResponse.json();
+    console.log("Elbow index, MSE:", elbowIndex);
     const svg = d3.select("#mse-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(1, mseScores.length + 1)).range([50, 500]).padding(0.1);
     const yScale = d3.scaleLinear().domain([0, d3.max(mseScores)]).range([250, 50]);
@@ -126,7 +140,7 @@ function drawMSEPlot(mseScores) {
         .attr("y", d => yScale(d))
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
-        .attr("fill", (d, i) => i === findElbowIndex(mseScores) ? "orange" : "steelblue");
+        .attr("fill", (d, i) => i === elbowIndex ? "orange" : "steelblue");
 }
 
 
@@ -140,8 +154,13 @@ async function drawBiplot(selectedPCs) {
 
     const kmeansResponse = await fetch('/kmeans');
     const kmeansData = await kmeansResponse.json();
+    // Convert to query string format
+    const valuesQuery = kmeansData.mse_scores.map(v => `values=${v}`).join("&");
+    const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`); // Flask API to get elbow
+    const elbowIndex = await elbowResponse.json();
+    console.log("Elbow index, k:", elbowIndex);
     const clusters = kmeansData.clusters;
-    const initialK = findElbowIndex(kmeansData.mse_scores);
+    const initialK = elbowIndex + 1;
     const clusterLabels = clusters[initialK];
 
     d3.select("#biplot-container").html("");
@@ -397,14 +416,3 @@ async function updateScatterplotMatrix(d_i) {
         
 }
 
-function findElbowIndex(values) {
-    let maxSlope = 0, elbowIndex = 0;
-    for (let i = 1; i < values.length - 1; i++) {
-        const slope = Math.abs(values[i - 1] - values[i]) + Math.abs(values[i] - values[i + 1]);
-        if (slope > maxSlope) {
-            maxSlope = slope;
-            elbowIndex = i + 1;
-        }
-    }
-    return elbowIndex;
-}
