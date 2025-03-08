@@ -273,7 +273,7 @@ async function loadTopAttributes(d_i) {
     const datasetResponse = await fetch('/dataset');
     const datasetData = await datasetResponse.json();
     if (!datasetData.dataset || datasetData.dataset.length === 0) {
-        console.error("⚠️ Error: Dataset is missing or empty", datasetData);
+        console.error("Error: Dataset is missing or empty", datasetData);
         return;
     }
 
