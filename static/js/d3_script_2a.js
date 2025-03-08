@@ -18,8 +18,8 @@ async function loadDashboard() {
     const kmeansData = await kmeansResponse.json();
     drawMSEPlot(kmeansData.mse_scores);
 
-    loadTopAttributes(3);
-    updateScatterplotMatrix(3);
+    loadTopAttributes(4);
+    updateScatterplotMatrix(4);
 }
 
 function setupLayout() {
@@ -257,7 +257,7 @@ async function loadTopAttributes(d_i) {
     const response = await fetch(`/top-attributes?d=${d_i}`);
     const data = await response.json();
 
-    // Fetch column names from PCA API
+    // Fetch column names from PCA from Flask API
     const pcaResponse = await fetch('/pca');
     const pcaData = await pcaResponse.json();
 
@@ -269,13 +269,43 @@ async function loadTopAttributes(d_i) {
 
     const columnNames = pcaData.column_names;
 
+    // Fetch dataset
+    const datasetResponse = await fetch('/dataset');
+    const datasetData = await datasetResponse.json();
+    if (!datasetData.dataset || datasetData.dataset.length === 0) {
+        console.error("⚠️ Error: Dataset is missing or empty", datasetData);
+        return;
+    }
+
+    // Fetch cluster labels
+    const kmeansResponse = await fetch('/kmeans');
+    const kmeansData = await kmeansResponse.json();
+
+    // Convert to query string format
+    const valuesQuery = kmeansData.mse_scores.map(v => `values=${v}`).join("&");
+
+    const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`);
+    const elbowIndex = await elbowResponse.json();
+    const initialK = elbowIndex;
+
+    console.log(`Initial k detected for coloring: ${initialK}`);
+    const clusterLabels = kmeansData.clusters[initialK];
+    if (!clusterLabels || clusterLabels.length === 0) {
+        console.error("Error: Cluster labels missing or empty", kmeansData);
+        return;
+    }
+    console.log("Cluster labels received:", clusterLabels);
+
     // Ensure top_attributes exists and is valid
     if (!data.top_attributes || data.top_attributes.length === 0) {
         console.error("Error: top_attributes is undefined or empty", data);
         return;
     }
 
-    console.log("Raw top_attributes data:", data.top_attributes);
+    // Ensure only attribute names are extracted (ignore PCA scores)
+    const attributes = data.top_attributes.map(attr => attr[0]);
+
+    console.log("Raw top_attributes data:", attributes);
     
     const table = d3.select("#top-attributes-table").html("").append("table").style("border", "1px solid black");
     // Table header
@@ -285,7 +315,6 @@ async function loadTopAttributes(d_i) {
         .text(d => d)
         .style("border", "1px solid black");
     
-    // Table rows
     // Table rows (Fix extracting values properly)
     data.top_attributes.forEach(attr => {
         if (!Array.isArray(attr) || attr.length !== 2) {
@@ -300,22 +329,35 @@ async function loadTopAttributes(d_i) {
         row.append("td").text(parseFloat(score).toFixed(4)).style("border", "1px solid black").style("padding", "5px");
     });
 
-    drawScatterplotMatrix(data.top_attributes);
+    drawScatterplotMatrix(attributes, datasetData.dataset, clusterLabels);
 }
 
-async function drawScatterplotMatrix(attributes, dataset) {
+async function drawScatterplotMatrix(attributes, dataset, clusterLabels) {
+    console.log("Dataset column names:", Object.keys(dataset[0]));
+    console.log("Attributes passed to scatterplot matrix:", attributes);
     if (!dataset || dataset.length === 0) {
         console.warn("Warning: dataset is undefined or empty in drawScatterplotMatrix.");
         return;
     }
+    if (!clusterLabels || clusterLabels.length !== dataset.length) {
+        console.error("Cluster labels do not match dataset size!", clusterLabels.length, dataset.length);
+        return;
+    }
 
     d3.select("#scatterplot-matrix").html(""); // Clear previous plots
+    d3.select("#scatterplot-legend").html(""); // Clear previous legend
     const svgSize = 500;
     const padding = 50;
     const cellSize = (svgSize - padding) / attributes.length;
     const svg = d3.select("#scatterplot-matrix").append("svg").attr("width", svgSize + 50).attr("height", svgSize);
 
     svg.append("text").attr("x", 97).attr("y", 20).attr("class", "title-typography").attr("text-anchor", "middle").text("Scatterplot Matrix");
+
+    // Get unique clusters and set up color scale
+    const uniqueClusters = [...new Set(clusterLabels)];
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(uniqueClusters);
+
+    console.log("Using cluster labels:", clusterLabels);
 
     attributes.forEach((attrX, col) => {
         attributes.forEach((attrY, row) => {
@@ -362,7 +404,7 @@ async function drawScatterplotMatrix(attributes, dataset) {
                     .attr("cx", d => xScale(parseFloat(d[attrX])))
                     .attr("cy", d => yScale(parseFloat(d[attrY])))
                     .attr("r", 2)
-                    .attr("fill", "steelblue");
+                    .attr("fill", (d, i) => colorScale(clusterLabels[i]));
 
                 // Add axes to left-most and bottom-most plots
                 if (col === 0) {
@@ -385,6 +427,25 @@ async function drawScatterplotMatrix(attributes, dataset) {
                 }
             }
         });
+    });
+
+    // Add legend as a separate SVG
+    const legendSvg = d3.select("#scatterplot-legend").append("svg")
+        .attr("width", 200)
+        .attr("height", uniqueClusters.length * 20 + 20);
+    uniqueClusters.forEach((cluster, i) => {
+        legendSvg.append("rect")
+            .attr("x", 10)
+            .attr("y", i * 20 + 10)
+            .attr("width", 12)
+            .attr("height", 12)
+            .attr("fill", colorScale(cluster));
+
+        legendSvg.append("text")
+            .attr("x", 30)
+            .attr("y", i * 20 + 20)
+            .text(`Cluster ${cluster}`)
+            .attr("font-size", "12px");
     });
 }
 
@@ -409,10 +470,31 @@ async function updateScatterplotMatrix(d_i) {
         return;
     }
 
+    // Fetch cluster assignments from Flask
+    const kmeansResponse = await fetch('/kmeans');
+    const kmeansData = await kmeansResponse.json();
+
+    // Convert to query string format
+    const valuesQuery = kmeansData.mse_scores.map(v => `values=${v}`).join("&");
+
+    const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`);
+    const elbowIndex = await elbowResponse.json();
+    const initialK = elbowIndex;
+    console.log(`Initial k detected for coloring: ${initialK}`);
+
+    // Get cluster labels for the selected k
+    const clusterLabels = kmeansData.clusters[initialK];
+    if (!clusterLabels || clusterLabels.length === 0) {
+        console.error("Error: Cluster labels missing or empty", kmeansData);
+        return;
+    }
+
+    console.log("Cluster labels received:", clusterLabels);
+
     console.log("Using attributes:", attributes);
     console.log("Received dataset:", datasetData.dataset);
 
-    drawScatterplotMatrix(attributes, datasetData.dataset);
+    drawScatterplotMatrix(attributes, datasetData.dataset, clusterLabels);
         
 }
 
