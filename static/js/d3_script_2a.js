@@ -23,8 +23,11 @@ async function loadDashboard() {
 }
 
 function setupLayout() {
-    const container = d3.select("body").append("div").attr("id", "visualization-container").style("display", "flex");
+    const scatterContainer = d3.select("body").append("div").attr("id", "scatter-container").style("display", "flex");
+    scatterContainer.append("div").attr("id", "scatterplot-matrix").style("flex", "1");
+    scatterContainer.append("div").attr("id", "scatterplot-legend").style("flex", "2");
 
+    const container = d3.select("body").append("div").attr("id", "visualization-container").style("display", "flex");
     container.append("div").attr("id", "scree-container").style("flex", "1");
     container.append("div").attr("id", "biplot-container").style("flex", "1");
 
@@ -329,7 +332,7 @@ async function loadTopAttributes(d_i) {
         row.append("td").text(parseFloat(score).toFixed(4)).style("border", "1px solid black").style("padding", "5px");
     });
 
-    drawScatterplotMatrix(attributes, datasetData.dataset, clusterLabels);
+    //drawScatterplotMatrix(attributes, datasetData.dataset, clusterLabels);
 }
 
 async function drawScatterplotMatrix(attributes, dataset, clusterLabels) {
@@ -479,7 +482,7 @@ async function updateScatterplotMatrix(d_i) {
 
     const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`);
     const elbowIndex = await elbowResponse.json();
-    const initialK = elbowIndex;
+    const initialK = elbowIndex + 1;
     console.log(`Initial k detected for coloring: ${initialK}`);
 
     // Get cluster labels for the selected k
