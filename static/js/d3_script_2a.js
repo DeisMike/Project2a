@@ -26,16 +26,20 @@ function setupLayout() {
     const scatterContainer = d3.select("body").append("div").attr("id", "scatter-container").style("display", "flex");
     scatterContainer.append("div").attr("id", "scatterplot-matrix").style("flex", "1");
     scatterContainer.append("div").attr("id", "scatterplot-legend").style("flex", "2");
+    scatterContainer.append("div").attr("id", "top-attributes-table").style("flex", "8");
 
     const container = d3.select("body").append("div").attr("id", "visualization-container").style("display", "flex");
     container.append("div").attr("id", "scree-container").style("flex", "1");
     container.append("div").attr("id", "biplot-container").style("flex", "1");
 
-    d3.select("body").append("div").attr("id", "top-attributes-table");
+    //d3.select("body").append("div").attr("id", "top-attributes-table");
 
 }
 
 let selectedPCs = [0, 1];
+let selectedK = null; // Store user-selected k value
+let selectedIntrinsicDimensionality = null; // Store user-selected intrinsic dimensionality
+let storedAttributes = null; // Stores selected attributes
 
 async function drawScreePlot(varianceExplained) {
     console.log(" Sending varianceExplained to Flask:", varianceExplained);
@@ -43,6 +47,7 @@ async function drawScreePlot(varianceExplained) {
     const valuesQuery = varianceExplained.map(v => `values=${v}`).join("&");
     const elbowResponse = await fetch(`/find-elbow?scree=1&${valuesQuery}`); // Flask API to get elbow
     let elbowIndex = await elbowResponse.json();
+    selectedIntrinsicDimensionality = selectedIntrinsicDimensionality !== null ? selectedIntrinsicDimensionality : elbowIndex;
     console.log("Elbow index, scree:", elbowIndex);
     const svg = d3.select("#scree-container").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(varianceExplained.length)).range([50, 500]).padding(0.1);    
@@ -80,7 +85,7 @@ async function drawScreePlot(varianceExplained) {
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
         .attr("fill", (d, i) => selectedPCs.includes(i) ? "orange" : "steelblue")
-        .attr("stroke", (d, i) => i === elbowIndex ? "black" : "none")
+        .attr("stroke", (d, i) => i === selectedIntrinsicDimensionality ? "black" : "none")
         .attr("stroke-width", 3)
         .on("click", function(event, d) {
             const clickedIndex = varianceExplained.indexOf(d);
@@ -98,12 +103,14 @@ async function drawScreePlot(varianceExplained) {
             drawBiplot(selectedPCs);
         })
         .on("mousedown", function(event, d) {
-            elbowIndex = varianceExplained.indexOf(d);
-            console.log(`Intrinsic Dimensionality Updated: ${elbowIndex}`);
+            selectedIntrinsicDimensionality = varianceExplained.indexOf(d);
+            console.log(`Intrinsic Dimensionality Updated: ${selectedIntrinsicDimensionality}`);
             // Update visuals
-            bars.attr("stroke", (d, i) => i === elbowIndex ? "black" : "none");
-            loadTopAttributes(elbowIndex + 1);
-            updateScatterplotMatrix(elbowIndex + 1);
+            bars.attr("stroke", (d, i) => i === selectedIntrinsicDimensionality ? "black" : "none");
+            loadTopAttributes(selectedIntrinsicDimensionality + 1);
+            updateScatterplotMatrix(selectedIntrinsicDimensionality + 1);
+            updateScatterplotMatrixClusters(selectedK + 1, false);
+            updateBiplot(selectedK + 1);
         });
 
 }
@@ -114,7 +121,10 @@ async function drawMSEPlot(mseScores) {
     const valuesQuery = mseScores.map(v => `values=${v}`).join("&");
     const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`); // Flask API to get elbow
     let elbowIndex = await elbowResponse.json();
-    console.log("Elbow index, MSE:", elbowIndex);
+
+    // Use stored K if user previously selected one
+    selectedK = selectedK !== null ? selectedK : elbowIndex;
+    console.log("Elbow index, MSE:", selectedK);
     const svg = d3.select("#mse-plot").append("svg").attr("width", 500).attr("height", 300);
     const xScale = d3.scaleBand().domain(d3.range(1, mseScores.length + 1)).range([50, 500]).padding(0.1);
     const yScale = d3.scaleLinear().domain([0, d3.max(mseScores)]).range([250, 50]);
@@ -142,15 +152,15 @@ async function drawMSEPlot(mseScores) {
         .attr("y", d => yScale(d))
         .attr("width", xScale.bandwidth())
         .attr("height", d => 250 - yScale(d))
-        .attr("fill", (d, i) => i === elbowIndex ? "orange" : "steelblue")
+        .attr("fill", (d, i) => i === selectedK ? "orange" : "steelblue")
         .on("click", function(event, d) {
-            elbowIndex = mseScores.indexOf(d);
-            console.log(`k Updated: ${elbowIndex + 1}`);
+            selectedK = mseScores.indexOf(d);
+            console.log(`k Updated: ${selectedK + 1}`);
             // Update K means bar chart 
-            bars.attr("fill", (d, i) => i === elbowIndex ? "orange" : "steelblue");
+            bars.attr("fill", (d, i) => i === selectedK ? "orange" : "steelblue");
             // Update biplot and scatterplot matrix
-            updateBiplot(elbowIndex + 1);
-            updateScatterplotMatrixClusters(elbowIndex + 1);
+            updateBiplot(selectedK + 1);
+            updateScatterplotMatrixClusters(selectedK + 1, true);
         });
 }
 
@@ -611,13 +621,19 @@ async function updateScatterplotMatrix(d_i) {
 }
 
 // Update scatterplot matrix when new k is selected
-async function updateScatterplotMatrixClusters(k) {
+async function updateScatterplotMatrixClusters(k, useSameAttributes = true) {
     const datasetResponse = await fetch('/dataset');
     const datasetData = await datasetResponse.json();
 
-    const attributesResponse = await fetch(`/top-attributes?d=4`);
-    const attributesData = await attributesResponse.json();
-    const attributes = attributesData.top_attributes.map(attr => attr[0]);
+    let attributes;
+    if (useSameAttributes && storedAttributes) {
+        attributes = storedAttributes; // Keep previous attributes
+    } else {
+        const attributesResponse = await fetch(`/top-attributes?d=${selectedIntrinsicDimensionality + 1}`);
+        const attributesData = await attributesResponse.json();
+        attributes = attributesData.top_attributes.map(attr => attr[0]); // Update attributes
+        storedAttributes = attributes; // Store for reuse
+    }
 
     const kmeansResponse = await fetch('/kmeans');
     const kmeansData = await kmeansResponse.json();
