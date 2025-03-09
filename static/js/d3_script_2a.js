@@ -181,7 +181,7 @@ async function drawBiplot(selectedPCs) {
     const elbowIndex = await elbowResponse.json();
     console.log("Elbow index, k:", elbowIndex);
     const clusters = kmeansData.clusters;
-    const initialK = elbowIndex + 1;
+    const initialK = selectedK + 1;
     const clusterLabels = clusters[initialK];
 
     d3.select("#biplot-container").html("");
@@ -408,7 +408,7 @@ async function loadTopAttributes(d_i) {
 
     const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`);
     const elbowIndex = await elbowResponse.json();
-    const initialK = elbowIndex;
+    const initialK = selectedK + 1;
 
     console.log(`Initial k detected for coloring: ${initialK}`);
     const clusterLabels = kmeansData.clusters[initialK];
@@ -601,7 +601,7 @@ async function updateScatterplotMatrix(d_i) {
 
     const elbowResponse = await fetch(`/find-elbow?kmeans=1&${valuesQuery}`);
     const elbowIndex = await elbowResponse.json();
-    const initialK = elbowIndex + 1;
+    const initialK = selectedK + 1;
     console.log(`Initial k detected for coloring: ${initialK}`);
 
     // Get cluster labels for the selected k
