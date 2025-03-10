@@ -9,6 +9,10 @@ h1 {
     text-align: center;
 }
 
+h2 {
+    text-align: center;
+}
+
 #scree-plot, #mse-plot, #biplot, #scatterplot-matrix {
     margin: 20px 0;
 }
