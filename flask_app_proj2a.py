@@ -8,7 +8,7 @@ import numpy as np
 
 app = Flask(__name__)
 
-# Load dataset for Wisconsin breast cancer dataset of 
+# Load dataset for Wisconsin breast cancer dataset of a digitized image of two nuclei of cells of a breast mass
 df = pd.read_csv('data/wdbc.csv')
 
 @app.route('/')
